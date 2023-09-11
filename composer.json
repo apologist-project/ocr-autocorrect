@@ -1,0 +1,32 @@
+{
+  "name": "apologist-project/ocr-autocorrect",
+  "description": "Train and autocorrect misspellings in texts.",
+  "type": "library",
+  "require": {
+    "php": "^8.1",
+    "illuminate/support": "^10.0"
+  },
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "Jake Carlson",
+      "email": "jake.carlson@apologistproject.org"
+    }
+  ],
+  "minimum-stability": "dev",
+  "autoload": {
+    "psr-4": {
+      "OcrAutoCorrect\\": "src/OcrAutoCorrect/"
+    },
+    "files": [
+      "src/OcrAutoCorrect/OcrAutoCorrect.php"
+    ]
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "OcrAutoCorrect\\OcrAutoCorrectServiceProvider"
+      ]
+    }
+  }
+}
