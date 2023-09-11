@@ -16,6 +16,7 @@ class OcrAutoCorrectServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        $this->app->singleton('ocrAutoCorrect', OcrAutoCorrect::class);
+        $this->app->singleton('OcrAutoCorrect', OcrAutoCorrect::class);
     }
+
 }
