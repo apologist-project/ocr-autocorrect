@@ -187,7 +187,7 @@ class TrainCommand extends Command
 
         $qry->bindValue(':error', $error, SQLITE3_TEXT);
         $qry->bindValue(':correction', $correction, SQLITE3_TEXT);
-        $qry->bindValue(':context', $context, SQLITE3_TEXT);
+        $qry->bindValue(':context', str_replace($error, "[{$error}]", $context), SQLITE3_TEXT);
         $qry->bindValue(':file', $file, SQLITE3_TEXT);
         $qry->bindValue(':auto', $auto, SQLITE3_INTEGER);
 

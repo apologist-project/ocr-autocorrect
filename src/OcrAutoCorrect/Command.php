@@ -203,14 +203,14 @@ abstract class Command extends BaseCommand
                             $context .= "{$words[$n]} ";
                         }
                     }
-                    $context .= str_replace($word, "<fg=white;bg=red>{$word}</>", $words[$i]);
+                    $context .= $word;
                     for ($n = $i+1; $n < $i+6; ++$n)
                     {
                         if (isset($words[$n])) {
                             $context .= " {$words[$n]}";
                         }
                     }
-                    $this->out->write($context);
+                    $this->out->write(str_replace($word, "<fg=white;bg=red>{$word}</>", $context));
 
                     $suggestions = $this->getSuggestions($word);
                     $replacement = $this->getReplacement(
