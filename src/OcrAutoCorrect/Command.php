@@ -71,7 +71,8 @@ abstract class Command extends BaseCommand
                 error TEXT,
                 correction TEXT,
                 context TEXT,
-                `source` TEXT
+                file TEXT,
+                auto INTEGER
             )
         ");
         $res = $this->db->query("
@@ -179,11 +180,10 @@ abstract class Command extends BaseCommand
             $this->out->title($file);
 
             $content = file_get_contents($file);
-            $this->out->write($content);
             $words = $this->parseWords($content);
             $numWords = count($words);
-            $errors = [];
-            $replacements = [];
+            $replaced = [];
+            $skipped = [];
 
             for ($i = 1; $i < $numWords; ++$i) {
 
@@ -229,6 +229,13 @@ abstract class Command extends BaseCommand
                     }
 
                     if (!is_null($correction)) {
+
+                        if ($error != $correction) {
+                            $replaced[$error] = $correction;
+                        } else {
+                            $skipped[] = $error;
+                        }
+
                         $pos = strpos($content, $error);
                         if ($pos !== false) {
                             $content = substr_replace($content, $correction, $pos, strlen($error));
@@ -243,11 +250,18 @@ abstract class Command extends BaseCommand
                         } else {
                             $this->out->error("Error writing to {$file}");
                         }
+
+                    } else {
+                        $skipped[] = $error;
                     }
 
                 }
 
             }
+
+            $numReplaced = count($replaced);
+            $numSkipped = count($skipped);
+            $this->out->success("{$numReplaced} replaced, {$numSkipped} skipped");
 
         }
     }

@@ -18,6 +18,7 @@ class TrainCommand extends Command
         'c' =>  'Correct expanded context',
         'k' =>  'Keep as-is',
         'r' =>  'Remove',
+        'a' =>  'Autocorrect with 1st suggested value',
     ];
 
     /**
@@ -39,49 +40,57 @@ class TrainCommand extends Command
     ): array
     {
 
-        $options = $this->getOptions($suggestions);
-        $selection = $this->out->choice(
-            'What do you want to do with this possible error?',
-            $options,
-            's'
-        );
-
-        $correction = null;
         $ff = false;
-        if ($selection == 's') {
-            $this->out->comment('Skipped');
-        } else if ($selection == 'q') {
-            $this->out->block('Goodbye!');
-            exit;
-        } else {
+        $auto = false;
+        $correction = $this->getAutoCorrect($error);
+        if (is_null($correction)) {
 
-            if ($selection == 'k') {
-                $correction = $error;
-            } else if ($selection == 'r') {
-                $correction = '';
-            } else if ($selection == 'e') {
-                $correction = $this->out->ask('Enter custom value');
-            } else if ($selection == 'c') {
-                $error = '';
-                if (isset($words[$i-1])) {
-                    $error .= "{$words[$i-1]} ";
-                }
-                $error .= $words[$i];
-                if (isset($words[$i+1])) {
-                    $error .= " {$words[$i+1]}";
-                }
-                $correction = $this->out->ask("What would you like to replace <fg=white;bg=red>{$error}</> with?");
-                $ff = true;
+            $options = $this->getOptions($suggestions);
+            $selection = $this->out->choice(
+                'What do you want to do with this possible error?',
+                $options,
+                's'
+            );
+
+            if ($selection == 's') {
+                $this->out->comment('Skipped');
+            } else if ($selection == 'q') {
+                $this->out->block('Goodbye!');
+                exit;
             } else {
-                $correction = $options[$selection];
-            }
 
-            if (!$this->saveCorrection($error, $correction, $context, $file)) {
-                $this->out->error("Error saving correction to database");
-            }
+                if ($selection == 'k') {
+                    $correction = $error;
+                } else if ($selection == 'a') {
+                    $correction = $options[1];
+                    $auto = true;
+                } else if ($selection == 'r') {
+                    $correction = '';
+                } else if ($selection == 'e') {
+                    $correction = $this->out->ask('Enter custom value');
+                } else if ($selection == 'c') {
+                    $error = '';
+                    if (isset($words[$i-1])) {
+                        $error .= "{$words[$i-1]} ";
+                    }
+                    $error .= $words[$i];
+                    if (isset($words[$i+1])) {
+                        $error .= " {$words[$i+1]}";
+                    }
+                    $correction = $this->out->ask("What would you like to replace <fg=white;bg=red>{$error}</> with?");
+                    $ff = true;
+                } else {
+                    $correction = $options[$selection];
+                }
 
-            if ($selection == 'k') {
-                $this->out->comment('Kept as-is');
+                if (!$this->saveCorrection($error, $correction, $context, $file, $auto)) {
+                    $this->out->error("Error saving correction to database");
+                }
+
+                if ($selection == 'k') {
+                    $this->out->comment('Kept as-is');
+                }
+
             }
 
         }
@@ -102,19 +111,58 @@ class TrainCommand extends Command
     {
         $options = static::CHOICES;
         array_unshift($suggestions, 'dummy');
-        array_splice( $options, 6, 0, $suggestions);
+        array_splice( $options, 7, 0, $suggestions);
         unset($options[0]);
         return $options;
+    }
+
+    /**
+     * @param string $str
+     * @return string|null
+     */
+    public function getAutoCorrect(string $str): string|null
+    {
+
+        $qry = $this->db->prepare("
+            SELECT
+                COUNT(error) AS `count`,
+                correction
+            FROM
+                corrections
+            WHERE
+                error = :str AND
+                auto = 1
+            GROUP BY
+                correction
+            ORDER BY
+                `count` DESC,
+                correction ASC
+        ");
+        $qry->bindValue(':str', $str, SQLITE3_TEXT);
+
+        $res = $qry->execute();
+        if ($row = $res->fetchArray()) {
+            return $row['correction'];
+        } else {
+            return null;
+        }
+
     }
 
     /**
      * @param string $error
      * @param string $correction
      * @param string $context
-     * @param string $source
+     * @param string $file
      * @return SQLite3Result
      */
-    public function saveCorrection(string $error, string $correction, string $context, string $source): SQLite3Result
+    public function saveCorrection(
+        string $error,
+        string $correction,
+        string $context,
+        string $file,
+        bool $auto
+    ): SQLite3Result
     {
 
         $qry = $this->db->prepare("
@@ -124,21 +172,24 @@ class TrainCommand extends Command
                 error,
                 correction,
                 context,
-                `source`
+                file,
+                auto
             )
             VALUES 
             (
                 :error,
                 :correction,
                 :context,
-                :source
+                :file,
+                :auto
             )
         ");
 
         $qry->bindValue(':error', $error, SQLITE3_TEXT);
         $qry->bindValue(':correction', $correction, SQLITE3_TEXT);
         $qry->bindValue(':context', $context, SQLITE3_TEXT);
-        $qry->bindValue(':source', $source, SQLITE3_TEXT);
+        $qry->bindValue(':file', $file, SQLITE3_TEXT);
+        $qry->bindValue(':auto', $auto, SQLITE3_INTEGER);
 
         return $qry->execute();
 
