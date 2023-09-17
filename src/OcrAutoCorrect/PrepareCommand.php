@@ -83,6 +83,9 @@ class PrepareCommand extends Command
         // Remove page numbers
         $content = preg_replace('/([\n\r]+)([[:digit:][:blank:][:punct:]]+)([\n\r]+)/', "\n", $content);
 
+        // Replace double apostrophe with quote
+        $content = str_replace("''", '"', $content);
+
         // Remove extraneous line breaks
         $content = preg_replace('/([\n\r]{3,})/', "\n\n", $content);
 
