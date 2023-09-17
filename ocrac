@@ -3,12 +3,14 @@
 require __DIR__.'/vendor/autoload.php';
 
 use Symfony\Component\Console\Application;
+use OcrAutoCorrect\PrepareCommand;
 use OcrAutoCorrect\CorrectCommand;
 use OcrAutoCorrect\ResetCommand;
 use OcrAutoCorrect\TrainCommand;
 
 $application = new Application();
 
+$application->add(new PrepareCommand());
 $application->add(new TrainCommand());
 $application->add(new CorrectCommand());
 $application->add(new ResetCommand());

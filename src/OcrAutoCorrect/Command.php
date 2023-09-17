@@ -19,19 +19,18 @@ abstract class Command extends BaseCommand
     protected SymfonyStyle $out;
     protected SQLite3 $db;
     protected Dictionary $dict;
+    protected bool $useDb = true;
 
-    protected function execute(InputInterface $in, OutputInterface $out): int
+    /**
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     * @return int
+     */
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
-
-        $this->setIO($in, $out);
-
-        $this->initDb();
-        $this->initDict();
-
+        $this->setIO($input, $output);
         $this->processFiles();
-
         return BaseCommand::SUCCESS;
-
     }
 
     /**
@@ -41,10 +40,15 @@ abstract class Command extends BaseCommand
     {
         $this
             ->addArgument('path', InputArgument::REQUIRED, 'Path to text file(s)')
-            ->addOption('db-file', 'd', InputOption::VALUE_OPTIONAL, 'SQLite database file', './corrections.db')
+            ->addArgument('output', InputArgument::OPTIONAL, 'Path save processed text file(s)')
             ->addOption('lang', 'l', InputOption::VALUE_OPTIONAL, 'Language', 'en')
-            ->addOption('dict-threshold', 't', InputOption::VALUE_OPTIONAL, 'Threshold to add correction to dictionary', 2)
         ;
+        if ($this->useDb) {
+            $this
+                ->addOption('db-file', 'd', InputOption::VALUE_OPTIONAL, 'SQLite database file', './corrections.db')
+                ->addOption('dict-threshold', 't', InputOption::VALUE_OPTIONAL, 'Threshold to add correction to dictionary', 2)
+            ;
+        }
     }
 
     /**
@@ -95,9 +99,7 @@ abstract class Command extends BaseCommand
     protected function initDict(): void
     {
 
-        $config = pspell_config_create($this->in->getOption('lang'));
-        pspell_config_mode($config, PSPELL_FAST);
-        $this->dict = pspell_new_config($config);
+        $this->setDict();
 
         $qry = $this->db->prepare("
             SELECT
@@ -122,6 +124,16 @@ abstract class Command extends BaseCommand
             }
         }
 
+    }
+
+    /**
+     * @return void
+     */
+    protected function setDict(): void
+    {
+        $config = pspell_config_create($this->in->getOption('lang'));
+        pspell_config_mode($config, PSPELL_FAST);
+        $this->dict = pspell_new_config($config);
     }
 
     /**
@@ -166,17 +178,22 @@ abstract class Command extends BaseCommand
     }
 
     /**
-     * @param bool $train
      * @return void
      */
-    protected function processFiles(bool $train = false): void
+    protected function processFiles(): void
     {
+
+        $this->initDb();
+        $this->initDict();
+
+        $outputDir = $this->getOutputDir();
 
         $files = $this->getFiles($this->in->getArgument('path'));
         foreach ($files as $file)
         {
 
             $file = realpath($file);
+            $filename = basename($file);
             $this->out->title($file);
 
             $content = file_get_contents($file);
@@ -241,14 +258,15 @@ abstract class Command extends BaseCommand
                             $content = substr_replace($content, $correction, $pos, strlen($error));
                         }
 
-                        if (file_put_contents($file, $content)) {
+                        $outputPath = "{$outputDir}/{$filename}";
+                        if (file_put_contents($outputPath, $content)) {
                             if (empty($correction)) {
                                 $this->out->text("Removed <fg=red>{$error}</>");
                             } else {
                                 $this->out->text("Replaced <fg=red>{$error}</> with <fg=green>{$correction}</>");
                             }
                         } else {
-                            $this->out->error("Error writing to {$file}");
+                            $this->out->error("Error writing to {$outputPath}");
                         }
 
                     } else {
@@ -264,6 +282,22 @@ abstract class Command extends BaseCommand
             $this->out->success("{$numReplaced} replaced, {$numSkipped} skipped");
 
         }
+    }
+
+    /**
+     * @return string
+     */
+    protected function getOutputDir(): string
+    {
+        $arg = $this->in->hasArgument('output') ? 'output' : 'path';
+        $dir = $this->in->getArgument($arg);
+        if (str_ends_with($dir, '.txt')) {
+            $dir = dirname($dir);
+        }
+        if (($arg == 'output') && !is_dir($dir)) {
+            mkdir($dir);
+        }
+        return $dir;
     }
 
     /**
