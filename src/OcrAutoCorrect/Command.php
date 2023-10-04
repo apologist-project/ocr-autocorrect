@@ -16,7 +16,7 @@ abstract class Command extends BaseCommand
 
     const PUNCT_TRIM = '.,"\'-;:*?[](){}!';
     const CONTEXT_SIZE = 20;
-    const SUGGESTION_LIMIT = 20;
+    const SUGGESTION_LIMIT = 10;
     protected InputInterface $in;
     protected SymfonyStyle $out;
     protected SQLite3 $db;
@@ -122,7 +122,7 @@ abstract class Command extends BaseCommand
         while ($row = $res->fetchArray()) {
             foreach (preg_split('/[ -]/', $row['correction']) as $word)
             {
-                pspell_add_to_session($this->dict, $word);
+                @pspell_add_to_session($this->dict, preg_replace('/\W/', '', $word));
             }
         }
 

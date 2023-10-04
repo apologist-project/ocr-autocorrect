@@ -16,6 +16,8 @@ class TrainCommand extends Command
         'q' =>  'Quit',
         'e' =>  'Enter custom value',
         'c' =>  'Correct expanded context',
+        'j' =>  'Join at hyphen(s)',
+        'x' =>  'Explode at hyphen(s)',
         'k' =>  'Keep as-is',
         'w' =>  'Whitelist',
         'r' =>  'Remove',
@@ -67,6 +69,10 @@ class TrainCommand extends Command
                     $correction = '';
                 } else if ($selection == 'e') {
                     $correction = $this->out->ask('Enter custom value');
+                } else if ($selection == 'j') {
+                    $correction = str_replace('-', '', $error);
+                } else if ($selection == 'x') {
+                    $correction = str_replace('-', ' ', $error);
                 } else if ($selection == 'c') {
                     $error = '';
                     if (isset($words[$i-1])) {
@@ -82,8 +88,8 @@ class TrainCommand extends Command
                     $correction = $options[$selection];
                 }
 
-                // Autocorrect if "whitelist" or "autocorrect ..." were chosen
-                $auto = in_array($selection, ['w', 'a']);
+                // Autocorrect if a selection was chosen that will likely hold forever
+                $auto = in_array($selection, ['w', 'a', 'j', 'x']);
 
                 if (!$this->saveCorrection($error, $correction, $context, $file, $auto)) {
                     $this->out->error("Error saving correction to database");
