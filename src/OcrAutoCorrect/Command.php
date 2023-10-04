@@ -14,7 +14,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 abstract class Command extends BaseCommand
 {
 
-    const PUNCT_TRIM = '.,"\'-;:*';
+    const PUNCT_TRIM = '.,"\'-;:*?[](){}!';
+    const CONTEXT_SIZE = 20;
+    const SUGGESTION_LIMIT = 20;
     protected InputInterface $in;
     protected SymfonyStyle $out;
     protected SQLite3 $db;
@@ -168,8 +170,11 @@ abstract class Command extends BaseCommand
 
         // Add suggestions from PSPELL
         foreach (pspell_suggest($this->dict, $str) as $suggestion) {
-            if (!in_array($suggestion, $suggestions)) {
+            if (!in_array($suggestion, $suggestions) && (!in_array($suggestion, array_keys(static::CHOICES)))) {
                 $suggestions[] = $suggestion;
+                if (count($suggestions) > static::SUGGESTION_LIMIT) {
+                    break;
+                }
             }
         }
 
@@ -207,21 +212,23 @@ abstract class Command extends BaseCommand
                 $word = trim($words[$i], static::PUNCT_TRIM);
                 if (
                     !preg_match('/([a-zA-Z][\.])+/', $word) && // Don't flag acronyms
+                    !preg_match('/([\d\:])+/', $word) && // Don't flag numbers and verses
                     !filter_var($word, FILTER_VALIDATE_URL) && // Don't flag URLs
                     !pspell_check($this->dict, $word)
                 ) {
 
-                    $this->out->section($word);
+                    $perc = number_format(($i / $numWords) * 100, 2);
+                    $this->out->section("{$word} ({$perc}%)");
 
                     $context = '';
-                    for ($n = $i-5; $n < $i; ++$n)
+                    for ($n = $i-static::CONTEXT_SIZE; $n < $i; ++$n)
                     {
                         if (isset($words[$n])) {
                             $context .= "{$words[$n]} ";
                         }
                     }
                     $context .= $word;
-                    for ($n = $i+1; $n < $i+6; ++$n)
+                    for ($n = $i+1; $n < $i+(static::CONTEXT_SIZE+1); ++$n)
                     {
                         if (isset($words[$n])) {
                             $context .= " {$words[$n]}";
@@ -253,15 +260,21 @@ abstract class Command extends BaseCommand
                             $skipped[] = $error;
                         }
 
-                        $pos = strpos($content, $error);
-                        if ($pos !== false) {
-                            $content = substr_replace($content, $correction, $pos, strlen($error));
+                        preg_match("/\W" . preg_quote($error) . "\W/", $content, $matches, PREG_OFFSET_CAPTURE);
+                        if (!empty($matches)) {
+                            foreach ($matches as $match)
+                            {
+                                $pos = $match[1]+1;
+                                $content = substr_replace($content, $correction, $pos, strlen($error));
+                            }
                         }
-
                         $outputPath = "{$outputDir}/{$filename}";
                         if (file_put_contents($outputPath, $content)) {
+                            $this->out->newLine(2);
                             if (empty($correction)) {
                                 $this->out->text("Removed <fg=red>{$error}</>");
+                            } else if ($correction == $error) {
+                                $this->out->text("Kept <fg=green>{$correction}</>");
                             } else {
                                 $this->out->text("Replaced <fg=red>{$error}</> with <fg=green>{$correction}</>");
                             }
@@ -323,7 +336,7 @@ abstract class Command extends BaseCommand
      */
     protected function parseWords(string $content): array
     {
-        return array_filter(preg_split('/[[:blank:]]+/', preg_replace('/[^[:alpha:][:blank:][:punct:]]/', '', $content)));
+        return array_filter(preg_split('/\s+/', preg_replace('/[^[:alnum:]\s[:punct:]]/', '', $content)));
     }
 
 }

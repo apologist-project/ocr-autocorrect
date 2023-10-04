@@ -22,7 +22,7 @@
       "OcrAutoCorrect\\": "src/OcrAutoCorrect/"
     },
     "files": [
-      "src/OcrAutoCorrect/OcrAutoCorrect.php"
+      
     ]
   },
   "extra": {

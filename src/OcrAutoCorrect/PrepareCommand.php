@@ -47,8 +47,6 @@ class PrepareCommand extends Command
                 ++$numErrors;
             }
 
-            break;
-
         }
 
         $this->out->success("{$numOk} files prepared successfully, {$numErrors} errors");
@@ -62,32 +60,37 @@ class PrepareCommand extends Command
     protected function prepareContent(string $content): string
     {
 
-        // Remove any non-ASCII characters
-        $content = preg_replace('/[^[:ascii:]\s]/', '', $content);
+        $replacements = [
+            "‘" => "'", // Convert weird apostrophes to standard ASCII ones
+            "’" => "'", // Convert weird apostrophes to standard ASCII ones
+            '“' => '"', // Convert weird quotes to standard ones
+            '”' => '"', // Convert weird quotes to standard ones
+            "—" => " — ", // Convert weird dash to mdash with spaces on either side
+            "--" => " — ", // Convert double dash to mdash with spaces on either side
+            "/([[:alnum:]])( )([\.\,\?\!;:\)\]])/" => '$1$3', // Remove spaces before punctuation
+            ". . ." => ' … ', // Fix ellipsis
+            "/([[:alnum:]]+)([-¬])([[:blank:]]?)([\n]+)([[:alnum:]]+)/" => '$1$5', // Remove line breaks in between hyphenated words
+            "_" => '', // Remove underscores
+            "|" => 'I', // Replace | with I
+            "/([[:alnum:]]+)([\[\(])/" => '$1 $2', // Don't allow a parentheses without a space before it
+            "/([\[\(])( )/" => '$1', // Force no space after an open parentheses
+            "/\r?\n(?!\r?\n)/" => ' ', // Remove line breaks in paragraphs
+            "/\n/" => "\n\n", // Make any paragraph breaks two line breaks
+            "/(\n)([[:blank:]])+/" => '$1', // Don't allow spaces at the beginning of a line
+            "/([\n]+)([[:digit:][:blank:][:punct:]]+)([\n]+)/" => "\n", // Remove page numbers
+            "''" => '"', // Replace double apostrophe with quote
+            "/([\n]{3,})/" => "\n\n", // Remove extraneous line breaks
+            "/[[:blank:]]{2,}/" => ' ', // Remove extraneous spaces
+        ];
 
-        // Remove extraneous spaces
-        $content = preg_replace('/[[:blank:]]{2,}/', ' ', $content);
-
-        // Remove spaces before punctuation
-        $content = preg_replace('/( )([[:punct:]])/', '$2', $content);
-
-        // Convert any HTML entities
-        $content = html_entity_decode($content);
-
-        // Remove line breaks in between hyphenated words
-        $content = preg_replace('/([[:alnum:]]+)(-)([[:blank:]]?)([\n\r]+)([[:alnum:]]+)/', '$1$5', $content);
-
-        // Remove line breaks in paragraphs
-        $content = preg_replace('/([[:alnum:][:punct:]]+)([[:blank:]]?)([\n\r])([[:alnum:][:punct:]]+)/', '$1 $4', $content);
-
-        // Remove page numbers
-        $content = preg_replace('/([\n\r]+)([[:digit:][:blank:][:punct:]]+)([\n\r]+)/', "\n", $content);
-
-        // Replace double apostrophe with quote
-        $content = str_replace("''", '"', $content);
-
-        // Remove extraneous line breaks
-        $content = preg_replace('/([\n\r]{3,})/', "\n\n", $content);
+        foreach ($replacements as $find=>$replace)
+        {
+            if (str_starts_with($find, '/')) {
+                $content = preg_replace($find, $replace, $content);
+            } else {
+                $content = str_replace($find, $replace, $content);
+            }
+        }
 
         // Cut out gobbledygook at beginning and end by starting w/ 1st real word and ending w/ last real word
         $content = $this->trimToWords($content);

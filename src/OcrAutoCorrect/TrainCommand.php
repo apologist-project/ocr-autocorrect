@@ -17,6 +17,7 @@ class TrainCommand extends Command
         'e' =>  'Enter custom value',
         'c' =>  'Correct expanded context',
         'k' =>  'Keep as-is',
+        'w' =>  'Whitelist',
         'r' =>  'Remove',
         'a' =>  'Autocorrect with 1st suggested value',
     ];
@@ -41,7 +42,6 @@ class TrainCommand extends Command
     {
 
         $ff = false;
-        $auto = false;
         $correction = $this->getAutoCorrect($error);
         if (is_null($correction)) {
 
@@ -59,11 +59,10 @@ class TrainCommand extends Command
                 exit;
             } else {
 
-                if ($selection == 'k') {
+                if (in_array($selection, ['k', 'w'])) {
                     $correction = $error;
                 } else if ($selection == 'a') {
                     $correction = $options[1];
-                    $auto = true;
                 } else if ($selection == 'r') {
                     $correction = '';
                 } else if ($selection == 'e') {
@@ -83,12 +82,17 @@ class TrainCommand extends Command
                     $correction = $options[$selection];
                 }
 
+                // Autocorrect if "whitelist" or "autocorrect ..." were chosen
+                $auto = in_array($selection, ['w', 'a']);
+
                 if (!$this->saveCorrection($error, $correction, $context, $file, $auto)) {
                     $this->out->error("Error saving correction to database");
                 }
 
                 if ($selection == 'k') {
                     $this->out->comment('Kept as-is');
+                } else if ($selection == 'w') {
+                    $this->out->comment('Whitelisted');
                 }
 
             }
@@ -111,7 +115,7 @@ class TrainCommand extends Command
     {
         $options = static::CHOICES;
         array_unshift($suggestions, 'dummy');
-        array_splice( $options, 7, 0, $suggestions);
+        array_splice( $options, count(static::CHOICES), 0, $suggestions);
         unset($options[0]);
         return $options;
     }
