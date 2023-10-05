@@ -17,6 +17,7 @@ abstract class Command extends BaseCommand
     const PUNCT_TRIM = '.,"\'-;:*?[](){}!';
     const CONTEXT_SIZE = 20;
     const SUGGESTION_LIMIT = 10;
+    const CHOICES = [];
     protected InputInterface $in;
     protected SymfonyStyle $out;
     protected SQLite3 $db;
@@ -44,6 +45,8 @@ abstract class Command extends BaseCommand
             ->addArgument('path', InputArgument::REQUIRED, 'Path to text file(s)')
             ->addArgument('output', InputArgument::OPTIONAL, 'Path save processed text file(s)')
             ->addOption('lang', 'l', InputOption::VALUE_OPTIONAL, 'Language', 'en')
+            ->addOption('dry-run', 'r', InputOption::VALUE_NONE, 'Dry run mode')
+            ->addOption('exclude-hyphenated', 'e', InputOption::VALUE_NONE, 'Exclude hyphenated words')
         ;
         if ($this->useDb) {
             $this
@@ -211,6 +214,7 @@ abstract class Command extends BaseCommand
 
                 $word = trim($words[$i], static::PUNCT_TRIM);
                 if (
+                    (!str_contains($word, '-') || !$this->in->getOption('exclude-hyphenated')) &&
                     !preg_match('/([a-zA-Z][\.])+/', $word) && // Don't flag acronyms
                     !preg_match('/([\d\:])+/', $word) && // Don't flag numbers and verses
                     !filter_var($word, FILTER_VALIDATE_URL) && // Don't flag URLs
@@ -268,18 +272,23 @@ abstract class Command extends BaseCommand
                                 $content = substr_replace($content, $correction, $pos, strlen($error));
                             }
                         }
-                        $outputPath = "{$outputDir}/{$filename}";
-                        if (file_put_contents($outputPath, $content)) {
-                            $this->out->newLine(2);
-                            if (empty($correction)) {
-                                $this->out->text("Removed <fg=red>{$error}</>");
-                            } else if ($correction == $error) {
-                                $this->out->text("Kept <fg=green>{$correction}</>");
+
+                        if (!$this->in->getOption('dry-run')) {
+
+                            $outputPath = "{$outputDir}/{$filename}";
+                            if (file_put_contents($outputPath, $content)) {
+                                $this->out->newLine(2);
+                                if (empty($correction)) {
+                                    $this->out->text("Removed <fg=red>{$error}</>");
+                                } else if ($correction == $error) {
+                                    $this->out->text("Kept <fg=green>{$correction}</>");
+                                } else {
+                                    $this->out->text("Replaced <fg=red>{$error}</> with <fg=green>{$correction}</>");
+                                }
                             } else {
-                                $this->out->text("Replaced <fg=red>{$error}</> with <fg=green>{$correction}</>");
+                                $this->out->error("Error writing to {$outputPath}");
                             }
-                        } else {
-                            $this->out->error("Error writing to {$outputPath}");
+
                         }
 
                     } else {

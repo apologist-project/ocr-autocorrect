@@ -91,8 +91,10 @@ class TrainCommand extends Command
                 // Autocorrect if a selection was chosen that will likely hold forever
                 $auto = in_array($selection, ['w', 'a', 'j', 'x']);
 
-                if (!$this->saveCorrection($error, $correction, $context, $file, $auto)) {
-                    $this->out->error("Error saving correction to database");
+                if (!$this->in->getOption('dry-run')) {
+                    if (!$this->saveCorrection($error, $correction, $context, $file, $auto)) {
+                        $this->out->error("Error saving correction to database");
+                    }
                 }
 
                 if ($selection == 'k') {
