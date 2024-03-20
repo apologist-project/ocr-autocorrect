@@ -159,7 +159,11 @@ class UnsquishCommand extends Command
 
     }
 
-    protected function getWords($str)
+    /**
+     * @param $str
+     * @return array
+     */
+    protected function getWords($str): array
     {
         $numChars = strlen($str);
         $words = [];
