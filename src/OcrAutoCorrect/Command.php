@@ -212,6 +212,7 @@ abstract class Command extends BaseCommand
 
             for ($i = 1; $i < $numWords; ++$i) {
 
+                $originalWord = $words[$i];
                 $word = trim($words[$i], static::PUNCT_TRIM);
                 if (
                     (!str_contains($word, '-') || !$this->in->getOption('exclude-hyphenated')) &&
@@ -231,7 +232,7 @@ abstract class Command extends BaseCommand
                             $context .= "{$words[$n]} ";
                         }
                     }
-                    $context .= $word;
+                    $context .= $originalWord;
                     for ($n = $i+1; $n < $i+(static::CONTEXT_SIZE+1); ++$n)
                     {
                         if (isset($words[$n])) {

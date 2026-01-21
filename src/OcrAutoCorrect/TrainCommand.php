@@ -68,7 +68,7 @@ class TrainCommand extends Command
                 } else if ($selection == 'r') {
                     $correction = '';
                 } else if ($selection == 'e') {
-                    $correction = $this->out->ask('Enter custom value');
+                    $correction = $this->out->ask("Enter custom value. Submit 'm' to go back to menu.");
                 } else if ($selection == 'j') {
                     $correction = str_replace('-', '', $error);
                 } else if ($selection == 'x') {
@@ -82,7 +82,7 @@ class TrainCommand extends Command
                     if (isset($words[$i+1])) {
                         $error .= " {$words[$i+1]}";
                     }
-                    $correction = $this->out->ask("What would you like to replace <fg=white;bg=red>{$error}</> with?");
+                    $correction = $this->out->ask("What would you like to replace <fg=white;bg=red>{$error}</> with? Submit 'm' to go back to menu.");
                     $ff = true;
                 } else {
                     $correction = $options[$selection];
@@ -90,6 +90,18 @@ class TrainCommand extends Command
 
                 // Autocorrect if a selection was chosen that will likely hold forever
                 $auto = in_array($selection, ['w', 'a', 'j', 'x']);
+
+                // If user selected "undo", recursively call this method to get a new selection
+                if ($correction === 'm') {
+                    return $this->getReplacement(
+                        $error,
+                        $suggestions,
+                        $words,
+                        $i,
+                        $context,
+                        $file
+                    );
+                }
 
                 if (!$this->in->getOption('dry-run')) {
                     if (!$this->saveCorrection($error, $correction, $context, $file, $auto)) {
